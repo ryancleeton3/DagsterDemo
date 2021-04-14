@@ -4,7 +4,7 @@ import os
 from dagster import solid, pipeline, lambda_solid
 
 ### for testing
-from dagster import execute_pipeline, execute_solid
+from dagster import execute_pipeline, execute_solid, DagsterEventType
 
 ### Solids
 @solid(config_schema={'csv_name':str})
@@ -64,6 +64,27 @@ def test_complex_pipeline():
     assert len(res.solid_result_list) == 6
     for solid_res in res.solid_result_list:
         assert solid_res.success
+
+    load_cereal_solid_result = res.result_for_solid('load_cereals')
+
+    assert [se.event_type for se in load_cereal_solid_result.step_events] == [
+        DagsterEventType.STEP_START,
+        DagsterEventType.STEP_OUTPUT,
+        DagsterEventType.HANDLED_OUTPUT,
+        DagsterEventType.STEP_SUCCESS,
+    ]
+
+    sort_by_calories_solid_result = res.result_for_solid('sort_by_calories')
+
+    assert [se.event_type for se in sort_by_calories_solid_result.step_events] == [
+        DagsterEventType.STEP_START,
+        DagsterEventType.LOADED_INPUT,
+        DagsterEventType.STEP_INPUT,
+        DagsterEventType.STEP_OUTPUT,
+        DagsterEventType.HANDLED_OUTPUT,
+        DagsterEventType.STEP_SUCCESS,
+    ]
+
 
 def test_load_cereal():
     run_config = {
