@@ -6,9 +6,9 @@ from dagster import solid, pipeline
 # for testing
 from dagster import execute_pipeline
 
-@solid
+@solid(config_schema={'csv_name':str})
 def load_cereals(context):
-    dataset_path = os.path.join(os.path.dirname(__file__), 'cereal.csv')
+    dataset_path = os.path.join(os.path.dirname(__file__), context.solid_config['csv_name'])
     with open(dataset_path, 'r') as f:
         cereals = [row for row in csv.DictReader(f)]
     context.log.info(f'Found {len(cereals)} cereals.')
@@ -43,8 +43,17 @@ def complex_pipeline():
     display_results(clean_results(most_caloric), clean_results(most_protein_rich))
 
 def test_complex_pipeline():
-    res = execute_pipeline(complex_pipeline)
+    run_config = {
+        'solids': {
+            'load_cereals': {
+                'config': {
+                    'csv_name': 'cereal.csv'
+                }
+            }
+        }
+    }
+    res = execute_pipeline(complex_pipeline, run_config=run_config)
     assert res.success
-    assert len(res.solid_result_list) == 4
+    assert len(res.solid_result_list) == 6
     for solid_res in res.solid_result_list:
         assert solid_res.success
