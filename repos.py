@@ -3,9 +3,10 @@ import os
 
 from dagster import solid, pipeline
 
-# for testing
-from dagster import execute_pipeline
+### for testing
+from dagster import execute_pipeline, execute_solid
 
+### Solids
 @solid(config_schema={'csv_name':str})
 def load_cereals(context):
     dataset_path = os.path.join(os.path.dirname(__file__), context.solid_config['csv_name'])
@@ -35,12 +36,16 @@ def display_results(context, most_calories, most_protein):
 def clean_results(context, results):
     return results[-1]['name']
 
+### Pipeline
+
 @pipeline
 def complex_pipeline():
     cereals = load_cereals()
     most_caloric = sort_by_calories(cereals)
     most_protein_rich = sort_by_protein(cereals)
     display_results(clean_results(most_caloric), clean_results(most_protein_rich))
+
+### TESTS
 
 def test_complex_pipeline():
     run_config = {
@@ -57,3 +62,17 @@ def test_complex_pipeline():
     assert len(res.solid_result_list) == 6
     for solid_res in res.solid_result_list:
         assert solid_res.success
+
+def test_load_cereal():
+    run_config = {
+        'solids': {
+            'load_cereals': {
+                'config': {
+                    'csv_name': 'cereal.csv'
+                }
+            }
+        }
+    }
+    res = execute_solid(load_cereals, run_config=run_config)
+    assert res.success
+    assert len(res.output_value()) == 77
