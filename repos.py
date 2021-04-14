@@ -3,6 +3,9 @@ import os
 
 from dagster import solid, pipeline
 
+# for testing
+from dagster import execute_pipeline
+
 @solid
 def load_cereals(context):
     dataset_path = os.path.join(os.path.dirname(__file__), 'cereal.csv')
@@ -38,3 +41,10 @@ def complex_pipeline():
     most_caloric = sort_by_calories(cereals)
     most_protein_rich = sort_by_protein(cereals)
     display_results(clean_results(most_caloric), clean_results(most_protein_rich))
+
+def test_complex_pipeline():
+    res = execute_pipeline(complex_pipeline)
+    assert res.success
+    assert len(res.solid_result_list) == 4
+    for solid_res in res.solid_result_list:
+        assert solid_res.success
