@@ -1,7 +1,7 @@
 import csv
 import os
 
-from dagster import solid, pipeline
+from dagster import solid, pipeline, lambda_solid
 
 ### for testing
 from dagster import execute_pipeline, execute_solid
@@ -32,8 +32,8 @@ def display_results(context, most_calories, most_protein):
     context.log.info(f'Most Caloric Cereal: {most_calories}')
     context.log.info(f'Most Protein-rich Cereal: {most_protein}')
 
-@solid
-def clean_results(context, results):
+@lambda_solid
+def clean_results(results) -> str:
     return results[-1]['name']
 
 ### Pipeline
@@ -43,7 +43,9 @@ def complex_pipeline():
     cereals = load_cereals()
     most_caloric = sort_by_calories(cereals)
     most_protein_rich = sort_by_protein(cereals)
-    display_results(clean_results(most_caloric), clean_results(most_protein_rich))
+    clean_most_caloric = clean_results.alias('clean_most_caloric')
+    clean_most_protein = clean_results.alias('clean_most_protein')
+    display_results(clean_most_caloric(most_caloric), clean_most_protein(most_protein_rich))
 
 ### TESTS
 
