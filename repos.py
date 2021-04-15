@@ -1,13 +1,25 @@
 import csv
 import os
 
-from dagster import solid, pipeline, lambda_solid
+from dagster import solid, pipeline, lambda_solid, DagsterType, OutputDefinition
 
 ### for testing
 from dagster import execute_pipeline, execute_solid, DagsterEventType, ExpectationResult, PipelineExecutionResult
 
+def is_list_of_dicts(context, value):
+    return isinstance(value, list) and all(isinstance(element, dict) for element in value)
+
+SimpleDataFrame = DagsterType(
+    name='SimpleDataFrame',
+    type_check_fn=is_list_of_dicts,
+    description='A naive representation of a data frame, e.g., as returned by csv.'
+)
+
 ### Solids
-@solid(config_schema={'csv_name':str})
+@solid(
+    config_schema={'csv_name':str},
+    output_defs=[OutputDefinition(SimpleDataFrame)]
+)
 def load_cereals(context):
     dataset_path = os.path.join(os.path.dirname(__file__), context.solid_config['csv_name'])
     with open(dataset_path, 'r') as f:
