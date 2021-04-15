@@ -1,7 +1,7 @@
 import csv
 import os
 
-from dagster import solid, pipeline, lambda_solid, DagsterType, OutputDefinition, EventMetadataEntry, TypeCheck
+from dagster import solid, pipeline, lambda_solid, DagsterType, Output, OutputDefinition, EventMetadataEntry, TypeCheck
 
 ### for testing
 from dagster import execute_pipeline, execute_solid, DagsterEventType, ExpectationResult, PipelineExecutionResult
@@ -81,24 +81,42 @@ def sort_by_protein(context, cereals):
     return sorted_cereals
 
 @solid
-def display_results(context, most_calories, most_protein):
-    context.log.info(f'Most Caloric Cereal: {most_calories}')
+def display_results(context, hot_most_calories, cold_most_calories, most_protein):
+    context.log.info(f'Most Caloric Hot Cereal: {hot_most_calories}')
+    context.log.info(f'Most Caloric cold Cereal: {cold_most_calories}')
     context.log.info(f'Most Protein-rich Cereal: {most_protein}')
 
 @lambda_solid
 def clean_results(results) -> str:
     return results[-1]['name']
 
-### Pipeline
+@solid(
+    output_defs=[
+        OutputDefinition(name='cold_cereal'),
+        OutputDefinition(name='hot_cereal')
+    ]
+)
+def split_cereals(context, cereals):
+    cold_cereal = [cereal for cereal in cereals if cereal['type']=='C']
+    hot_cereal = [cereal for cereal in cereals if cereal['type']=='H']
+    yield Output(cold_cereal, output_name='cold_cereal')
+    yield Output(hot_cereal, output_name='hot_cereal')
 
+### Pipeline
 @pipeline
 def complex_pipeline():
     cereals = load_cereals()
-    most_caloric = sort_by_calories(cereals)
+    cold_cereal, hot_cereal = split_cereals(cereals)
+    sort_hot_most_caloric = sort_by_calories.alias('sort_hot_most_caloric')
+    sort_cold_most_caloric = sort_by_calories.alias('sort_cold_most_caloric')
+    clean_hot_most_caloric = clean_results.alias('clean_hot_most_caloric')
+    clean_cold_most_caloric = clean_results.alias('clean_cold_most_caloric')
+
+
+
     most_protein_rich = sort_by_protein(cereals)
-    clean_most_caloric = clean_results.alias('clean_most_caloric')
     clean_most_protein = clean_results.alias('clean_most_protein')
-    display_results(clean_most_caloric(most_caloric), clean_most_protein(most_protein_rich))
+    display_results(clean_hot_most_caloric(sort_hot_most_caloric(hot_cereal)), clean_cold_most_caloric(sort_cold_most_caloric(cold_cereal)), clean_most_protein(most_protein_rich))
 
 ### TESTS
 
@@ -115,7 +133,7 @@ def test_complex_pipeline():
     res = execute_pipeline(complex_pipeline, run_config=run_config)
     assert isinstance(res, PipelineExecutionResult)
     assert res.success
-    assert len(res.solid_result_list) == 6
+    assert len(res.solid_result_list) == 9
     for solid_res in res.solid_result_list:
         assert solid_res.success
 
@@ -128,7 +146,7 @@ def test_complex_pipeline():
         DagsterEventType.STEP_SUCCESS,
     ]
 
-    sort_by_calories_solid_result = res.result_for_solid('sort_by_calories')
+    sort_by_calories_solid_result = res.result_for_solid('sort_cold_most_caloric')
 
     assert [se.event_type for se in sort_by_calories_solid_result.step_events] == [
         DagsterEventType.STEP_START,
@@ -139,9 +157,9 @@ def test_complex_pipeline():
         DagsterEventType.STEP_SUCCESS,
     ]
 
-    assert type(res.output_for_solid('sort_by_calories')) == list
-    assert type(res.output_for_solid('clean_most_caloric')) == str 
-    assert res.output_for_solid('clean_most_caloric') == 'Strawberry Fruit Wheats'
+    assert type(res.output_for_solid('sort_cold_most_caloric')) == list
+    assert type(res.output_for_solid('clean_cold_most_caloric')) == str 
+    assert res.output_for_solid('clean_cold_most_caloric') == 'Strawberry Fruit Wheats'
 
 
 def test_load_cereal():
