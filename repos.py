@@ -58,11 +58,10 @@ SimpleDataFrame = DagsterType(
 
 ### Solids
 @solid(
-    config_schema={'csv_name':str},
     output_defs=[OutputDefinition(SimpleDataFrame)]
 )
-def load_cereals(context):
-    dataset_path = os.path.join(os.path.dirname(__file__), context.solid_config['csv_name'])
+def load_cereals(context, csv_path: str):
+    dataset_path = os.path.join(os.path.dirname(__file__), csv_path)
     with open(dataset_path, 'r') as f:
         cereals = [row for row in csv.DictReader(f)]
     context.log.info(f'Found {len(cereals)} cereals.')
@@ -124,8 +123,10 @@ def test_complex_pipeline():
     run_config = {
         'solids': {
             'load_cereals': {
-                'config': {
-                    'csv_name': 'cereal.csv'
+                'inputs': {
+                    'csv_path': {
+                        'value': 'cereal.csv'
+                    }
                 }
             }
         }
@@ -141,6 +142,7 @@ def test_complex_pipeline():
 
     assert [se.event_type for se in load_cereal_solid_result.step_events] == [
         DagsterEventType.STEP_START,
+        DagsterEventType.STEP_INPUT,
         DagsterEventType.STEP_OUTPUT,
         DagsterEventType.HANDLED_OUTPUT,
         DagsterEventType.STEP_SUCCESS,
@@ -166,8 +168,10 @@ def test_load_cereal():
     run_config = {
         'solids': {
             'load_cereals': {
-                'config': {
-                    'csv_name': 'cereal.csv'
+                'inputs': {
+                    'csv_path': {
+                        'value': 'cereal.csv'
+                    }
                 }
             }
         }
