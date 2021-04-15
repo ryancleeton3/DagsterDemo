@@ -1,13 +1,54 @@
 import csv
 import os
 
-from dagster import solid, pipeline, lambda_solid, DagsterType, OutputDefinition
+from dagster import solid, pipeline, lambda_solid, DagsterType, OutputDefinition, EventMetadataEntry, TypeCheck
 
 ### for testing
 from dagster import execute_pipeline, execute_solid, DagsterEventType, ExpectationResult, PipelineExecutionResult
 
 def is_list_of_dicts(context, value):
-    return isinstance(value, list) and all(isinstance(element, dict) for element in value)
+    if not isinstance(value, list):
+        return TypeCheck(
+            success=False,
+            description=f'LessSimpleDataFrame should be a list of dicts, got {type_}',
+        )
+    fields = [field for field in value[0].keys()]
+
+    for i in range(len(value)):
+        row = value[i]
+        if not isinstance(row, dict):
+            return TypeCheck(
+                success=False,
+                description=f'LessSimpleDataFrame should be a list of dicts, got {type(row)} for row {i+1}'
+            )
+        row_fields = [field for field in row.keys()]
+        if fields != row_fields:
+            return TypeCheck(
+                success=False,
+                description=f'Rows in LessSimpleDataFrame should have the same fields, got {row_fields}, for row {i+1}, expected {fields}',
+            )
+
+    return TypeCheck(
+        success=True,
+        description="LessSimpleDataFrame summary statistics",
+        metadata_entries=[
+            EventMetadataEntry.text(
+                str(len(value)),
+                'n_rows',
+                'Number of rows seen in the data frame'
+            ),
+            EventMetadataEntry.text(
+                str(len(value[0].keys()) if len(value) > 0 else 0),
+                'n_cols',
+                'Number of columns seen in the data frame'
+            ),
+            EventMetadataEntry.text(
+                str(list(value[0].keys()) if len(value) > 0 else []),
+                'column_names',
+                'Keys of columns seen in the data frame'
+            )
+        ]
+    )
 
 SimpleDataFrame = DagsterType(
     name='SimpleDataFrame',
