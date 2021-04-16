@@ -1,7 +1,7 @@
 import csv
 import os
 
-from dagster import solid, pipeline, lambda_solid, DagsterType, Output, OutputDefinition, EventMetadataEntry, TypeCheck
+from dagster import solid, pipeline, lambda_solid, DagsterType, Output, OutputDefinition, EventMetadataEntry, TypeCheck, repository
 
 ### for testing
 from dagster import execute_pipeline, execute_solid, DagsterEventType, ExpectationResult, PipelineExecutionResult
@@ -116,6 +116,15 @@ def complex_pipeline():
     most_protein_rich = sort_by_protein(cereals)
     clean_most_protein = clean_results.alias('clean_most_protein')
     display_results(clean_hot_most_caloric(sort_hot_most_caloric(hot_cereal)), clean_cold_most_caloric(sort_cold_most_caloric(cold_cereal)), clean_most_protein(most_protein_rich))
+
+### Repositories
+@repository
+def hello_cereal_repository():
+    return {
+        'pipelines': {
+            'complex_pipeline': lambda: complex_pipeline,
+        }
+    }
 
 ### TESTS
 
